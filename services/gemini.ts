@@ -3,24 +3,18 @@ import { GoogleGenAI } from "@google/genai";
 import { GeneratorConfig } from "../types";
 import { ELEMENTS, STYLES, DECORATIONS, FONTS } from "../constants";
 
-/**
- * Tenta encontrar a chave de API em diferentes variáveis de ambiente comuns.
- * No Vercel, as variáveis só ficam disponíveis após um novo DEPLOY.
- */
 const getAiClient = () => {
-  // Tenta todos os nomes possíveis para garantir que funcione com o que você configurou no print
-  const apiKey = 
-    process.env.API_KEY || 
-    process.env.GOOGLE_API_KEY || 
-    process.env.VITE_API_KEY || 
-    process.env.REACT_APP_API_KEY;
+  // A instrução oficial exige o uso de process.env.API_KEY.
+  // No Vercel, esta variável só é injetada no código após um novo REDEPLOY.
+  const apiKey = process.env.API_KEY || (process.env as any).GOOGLE_API_KEY;
   
   if (!apiKey) {
     throw new Error(
-      "CHAVE NÃO ENCONTRADA: \n" +
-      "1. No Vercel, o nome da variável deve ser preferencialmente API_KEY.\n" +
-      "2. Você DEVE ir na aba 'Deployments' e clicar em 'REDEPLOY' após salvar a variável.\n" +
-      "As alterações de variáveis não funcionam em deploys antigos."
+      "CHAVE NÃO DETECTADA: \n\n" +
+      "1. No Vercel, confirme se o nome da variável é API_KEY.\n" +
+      "2. Vá na aba 'Deployments' do projeto.\n" +
+      "3. Clique nos '...' do deploy mais recente e selecione 'REDEPLOY'.\n\n" +
+      "O Vercel só aplica variáveis novas durante uma nova construção (Build)."
     );
   }
   return new GoogleGenAI({ apiKey });
