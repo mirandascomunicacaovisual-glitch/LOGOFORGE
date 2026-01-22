@@ -16,6 +16,7 @@ export interface EditResult {
 }
 
 export const generateLogo = async (config: GeneratorConfig): Promise<string> => {
+  // Criar instância sempre no momento do uso para capturar a chave de API atualizada
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const element = ELEMENTS.find(e => e.id === config.element);
@@ -38,13 +39,14 @@ export const generateLogo = async (config: GeneratorConfig): Promise<string> => 
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-3-pro-image-preview', // Upgrade para Pro Image
       contents: {
         parts: [{ text: prompt }],
       },
       config: {
         imageConfig: {
-          aspectRatio: "1:1"
+          aspectRatio: "1:1",
+          imageSize: "1K" // Qualidade Premium Base
         }
       }
     });
@@ -54,9 +56,12 @@ export const generateLogo = async (config: GeneratorConfig): Promise<string> => 
         return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("O Mestre da Forja não conseguiu materializar a imagem. Tente novamente.");
-  } catch (error) {
+    throw new Error("O Mestre da Forja não conseguiu materializar a imagem. Verifique se sua chave de API tem permissões para o modelo Imagen/Gemini 3.");
+  } catch (error: any) {
     console.error("Error generating logo:", error);
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("REKEY_REQUIRED");
+    }
     throw error;
   }
 };
@@ -103,26 +108,24 @@ export const editLogo = async (
     1. INTELIGÊNCIA DE ESTILO: Se o cliente enviar uma referência com fonte cursiva, rúnica ou agressiva, você DEVE replicar exatamente essa estrutura óssea das letras, mas mantendo a renderização 3D metálica premium.
     2. NOME DO SERVIDOR: O nome "${config.serverName}" deve permanecer perfeitamente legível e central.
     3. QUALIDADE PROFISSIONAL: Use efeitos de oclusão de ambiente, reflexos de Ray Tracing simulados, e partículas mágicas de alta definição.
-    4. SUBSTITUIÇÃO DE ELEMENTOS: Se solicitado para trocar um elemento (ex: trocar espada por dragão), faça a integração perfeita na cena 3D.
     
     OBRIGATÓRIO: 
     - Você DEVE retornar uma nova versão da imagem editada.
     - Você DEVE retornar uma mensagem curta e profissional em PORTUGUÊS confirmando as mudanças técnicas realizadas.
-    
-    Exemplo de Confirmação: "Forja concluída! Analisei sua referência e redesenhei a tipografia para o estilo [estilo], aplicando texturas de [material] e reforçando o glow [cor]. A composição agora segue o padrão épico solicitado."
   `.trim();
 
   parts.push({ text: prompt });
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: 'gemini-3-pro-image-preview',
       contents: {
         parts: parts,
       },
       config: {
         imageConfig: {
-          aspectRatio: "1:1"
+          aspectRatio: "1:1",
+          imageSize: "1K"
         }
       }
     });
@@ -131,7 +134,7 @@ export const editLogo = async (
     let assistantMessage = '';
 
     const candidates = response.candidates;
-    if (!candidates || candidates.length === 0) throw new Error("A Forja está instável. Tente novamente.");
+    if (!candidates || candidates.length === 0) throw new Error("A Forja está instável.");
 
     for (const part of candidates[0].content.parts) {
       if (part.inlineData) {
@@ -141,18 +144,14 @@ export const editLogo = async (
       }
     }
 
-    if (!imageUrl) {
-      // If the model only replied with text, it failed our instruction to provide an image.
-      throw new Error("O Mestre da Forja apenas descreveu a mudança mas não conseguiu forjar a imagem. Por favor, tente descrever de outra forma ou envie a imagem novamente.");
-    }
+    if (!imageUrl) throw new Error("O Mestre não conseguiu gerar a imagem.");
     
-    if (!assistantMessage) {
-      assistantMessage = "Refinamento épico concluído com sucesso!";
-    }
-
-    return { imageUrl, assistantMessage };
+    return { imageUrl, assistantMessage: assistantMessage || "Refinamento épico concluído!" };
   } catch (error: any) {
     console.error("Error editing logo:", error);
-    throw new Error(error.message || "Falha na comunicação com a Forja Arpiana.");
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("REKEY_REQUIRED");
+    }
+    throw error;
   }
 };
