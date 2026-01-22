@@ -3,13 +3,25 @@ import { GoogleGenAI } from "@google/genai";
 import { GeneratorConfig } from "../types";
 import { ELEMENTS, STYLES, DECORATIONS, FONTS } from "../constants";
 
-// Função para garantir a criação da instância apenas quando necessária
+/**
+ * Tenta encontrar a chave de API em diferentes variáveis de ambiente comuns.
+ * No Vercel, as variáveis só ficam disponíveis após um novo DEPLOY.
+ */
 const getAiClient = () => {
-  // O código agora tenta ler tanto 'API_KEY' quanto 'GOOGLE_API_KEY' (o nome que você usou no print do Vercel)
-  const apiKey = process.env.API_KEY || process.env.GOOGLE_API_KEY;
+  // Tenta todos os nomes possíveis para garantir que funcione com o que você configurou no print
+  const apiKey = 
+    process.env.API_KEY || 
+    process.env.GOOGLE_API_KEY || 
+    process.env.VITE_API_KEY || 
+    process.env.REACT_APP_API_KEY;
   
   if (!apiKey) {
-    throw new Error("A chave de API não foi detectada. Certifique-se de que o nome no Vercel seja API_KEY ou GOOGLE_API_KEY e que você tenha feito um REDEPLOY do projeto após salvar a variável.");
+    throw new Error(
+      "CHAVE NÃO ENCONTRADA: \n" +
+      "1. No Vercel, o nome da variável deve ser preferencialmente API_KEY.\n" +
+      "2. Você DEVE ir na aba 'Deployments' e clicar em 'REDEPLOY' após salvar a variável.\n" +
+      "As alterações de variáveis não funcionam em deploys antigos."
+    );
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -29,8 +41,8 @@ export interface EditResult {
 export const generateLogo = async (config: GeneratorConfig): Promise<string> => {
   const ai = getAiClient();
   
-  const element = ELEMENTS.find(e => e.id === config.element);
   const font = FONTS.find(f => f.id === config.font);
+  const element = ELEMENTS.find(e => e.id === config.element);
   const style = STYLES.find(s => s.id === config.style);
   const decoration = DECORATIONS.find(d => d.id === config.decoration);
 
