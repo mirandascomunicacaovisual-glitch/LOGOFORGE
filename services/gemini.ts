@@ -3,9 +3,19 @@ import { GoogleGenAI } from "@google/genai";
 import { GeneratorConfig } from "../types";
 import { ELEMENTS, STYLES, DECORATIONS, FONTS } from "../constants";
 
+// Função para garantir a criação da instância apenas quando necessária
+const getAiClient = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("A chave de API não foi configurada no servidor (Environment Variable API_KEY faltando).");
+  }
+  return new GoogleGenAI({ apiKey });
+};
+
 const getSystemPrompt = (config: GeneratorConfig) => `
-    VOCÊ É O MESTRE DA FORJA ARPIANA - O maior designer de logos para Lineage 2 do mundo.
-    CONTEXTO TÉCNICO: Logos 3D Premium, Chanfrados Metálicos, Iluminação Cinematográfica, Partículas Volumétricas.
+    VOCÊ É O MESTRE DA FORJA DE ADEN.
+    ESPECIALIDADE: Logos 3D Premium para Lineage 2 (Private Servers).
+    ESTILO: Tipografia 3D metálica pesada, chanfrada, com iluminação dinâmica (rim lighting), Unreal Engine 5 render style.
     NOME DO SERVIDOR: "${config.serverName}".
 `;
 
@@ -15,50 +25,46 @@ export interface EditResult {
 }
 
 export const generateLogo = async (config: GeneratorConfig): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAiClient();
   
   const element = ELEMENTS.find(e => e.id === config.element);
+  const font = FONTS.find(f => f.id === config.font);
   const style = STYLES.find(s => s.id === config.style);
   const decoration = DECORATIONS.find(d => d.id === config.decoration);
-  const font = FONTS.find(f => f.id === config.font);
 
   const prompt = `
     ${getSystemPrompt(config)}
-    MISSÃO: Forjar um logo lendário para "${config.serverName}".
-    TIPOGRAFIA: ${font?.prompt}.
-    ELEMENTO: ${element?.prompt}.
-    ESTILO: ${style?.prompt}.
-    DECORAÇÃO: ${decoration?.prompt}.
+    MISSÃO: Gerar um logo centralizado com o texto "${config.serverName.toUpperCase()}".
+    ANATOMIA DA FONTE: ${font?.prompt}.
+    ATMOSFERA MÁGICA: ${element?.prompt}.
+    ESTILO DE ARTE: ${style?.prompt}.
+    ELEMENTO DE FUNDO: ${decoration?.prompt}.
     
-    DETALHES OBRIGATÓRIOS: 
-    - Renderização 3D de altíssima fidelidade.
-    - Acabamento em metal escovado ou ouro polido.
-    - Fundo épico com névoa e luzes de fundo.
-    - Centralização perfeita.
+    DETALHES TÉCNICOS:
+    - O texto deve ser o foco principal em 3D.
+    - Textura de metal escovado, ouro ou prata rúnica.
+    - Partículas de energia e faíscas ao redor.
+    - Fundo escuro épico (cinematic fog).
+    - Alta resolução, qualidade de agência de publicidade.
   `.trim();
 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: prompt }],
-      },
+      contents: { parts: [{ text: prompt }] },
       config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
+        imageConfig: { aspectRatio: "1:1" }
       }
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return `data:image/png;base64,${part.inlineData.data}`;
-      }
+    const part = response.candidates?.[0]?.content?.parts.find(p => p.inlineData);
+    if (part?.inlineData) {
+      return `data:image/png;base64,${part.inlineData.data}`;
     }
-    throw new Error("A Forja não respondeu. Verifique se a API_KEY está configurada no Vercel.");
+    throw new Error("A forja falhou em materializar a imagem. Tente novamente.");
   } catch (error: any) {
-    console.error("Logo generation error:", error);
-    throw new Error(error.message || "Falha na materialização do logo.");
+    console.error("Erro na geração:", error);
+    throw error;
   }
 };
 
@@ -68,45 +74,27 @@ export const editLogo = async (
   config: GeneratorConfig,
   userReferenceImageBase64?: string
 ): Promise<EditResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
+  const ai = getAiClient();
   const currentLogoData = currentImageBase64.replace(/^data:image\/\w+;base64,/, "");
 
   const parts: any[] = [
-    {
-      inlineData: {
-        data: currentLogoData,
-        mimeType: 'image/png'
-      }
-    }
+    { inlineData: { data: currentLogoData, mimeType: 'image/png' } }
   ];
 
   if (userReferenceImageBase64) {
     const refData = userReferenceImageBase64.replace(/^data:image\/\w+;base64,/, "");
-    parts.push({
-      inlineData: {
-        data: refData,
-        mimeType: 'image/png'
-      }
-    });
+    parts.push({ inlineData: { data: refData, mimeType: 'image/png' } });
   }
 
   const prompt = `
     ${getSystemPrompt(config)}
-    COMANDO DO GUERREIRO: "${instruction}".
+    PEDIDO DO CLIENTE: "${instruction}".
     
-    INSTRUÇÃO DE INTELIGÊNCIA SUPERIOR:
     ${userReferenceImageBase64 ? 
-      "ANALISE A SEGUNDA IMAGEM (REFERÊNCIA). EXTRAIA A ANATOMIA DA FONTE, AS CORES E O ESTILO 3D. APLIQUE ESSE DNA AO NOME '" + config.serverName + "'." : 
-      "MODIFIQUE O LOGO ATUAL CONFORME A INSTRUÇÃO."}
+      "USE A SEGUNDA IMAGEM COMO REFERÊNCIA DE ESTILO. Aplique as cores, o tipo de letra e a aura dessa referência no novo logo para '" + config.serverName + "'." : 
+      "Modifique o logo atual seguindo as instruções do cliente."}
     
-    REGRAS DE OURO:
-    1. Se houver imagem de referência, priorize o estilo visual dela acima de tudo.
-    2. Mantenha a legibilidade absoluta do nome "${config.serverName}".
-    3. Adicione efeitos de faíscas, brilho intenso e texturas MMORPG de elite.
-    4. NÃO RESPONDA APENAS COM TEXTO. VOCÊ DEVE GERAR A IMAGEM.
-    
-    CONFIRMAÇÃO (EM PORTUGUÊS): Explique brevemente o que foi alterado na técnica de forja.
+    RESPOSTA: Gere a imagem editada e uma breve confirmação técnica em português.
   `.trim();
 
   parts.push({ text: prompt });
@@ -114,14 +102,8 @@ export const editLogo = async (
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: parts,
-      },
-      config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
-      }
+      contents: { parts },
+      config: { imageConfig: { aspectRatio: "1:1" } }
     });
 
     let imageUrl = '';
@@ -135,14 +117,11 @@ export const editLogo = async (
       }
     }
 
-    if (!imageUrl) throw new Error("O Mestre não conseguiu gerar a nova versão.");
+    if (!imageUrl) throw new Error("Não foi possível processar a edição.");
     
-    return { 
-      imageUrl, 
-      assistantMessage: assistantMessage || "O logo foi refinado com sucesso nas chamas da forja!" 
-    };
+    return { imageUrl, assistantMessage: assistantMessage || "O logo foi refinado com sucesso!" };
   } catch (error: any) {
-    console.error("Edit logo error:", error);
-    throw new Error(error.message || "Erro no refinamento da imagem.");
+    console.error("Erro na edição:", error);
+    throw error;
   }
 };
