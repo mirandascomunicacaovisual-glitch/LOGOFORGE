@@ -5,9 +5,11 @@ import { ELEMENTS, STYLES, DECORATIONS, FONTS } from "../constants";
 
 // Função para garantir a criação da instância apenas quando necessária
 const getAiClient = () => {
-  const apiKey = process.env.API_KEY;
+  // O código agora tenta ler tanto 'API_KEY' quanto 'GOOGLE_API_KEY' (o nome que você usou no print do Vercel)
+  const apiKey = process.env.API_KEY || process.env.GOOGLE_API_KEY;
+  
   if (!apiKey) {
-    throw new Error("A chave de API não foi configurada no servidor (Environment Variable API_KEY faltando).");
+    throw new Error("A chave de API não foi detectada. Certifique-se de que o nome no Vercel seja API_KEY ou GOOGLE_API_KEY e que você tenha feito um REDEPLOY do projeto após salvar a variável.");
   }
   return new GoogleGenAI({ apiKey });
 };
