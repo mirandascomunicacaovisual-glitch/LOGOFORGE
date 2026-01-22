@@ -6,7 +6,6 @@ import { generateLogo, editLogo } from './services/gemini';
 import Watermark from './components/Watermark';
 
 const App: React.FC = () => {
-  const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [isPremium, setIsPremium] = useState(false);
   const [config, setConfig] = useState<GeneratorConfig>({
     serverName: '',
@@ -28,28 +27,14 @@ const App: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   useEffect(() => {
-    checkKey();
-  }, []);
+    scrollToBottom();
+  }, [messages]);
 
-  const checkKey = async () => {
-    if (window.aistudio) {
-      const selected = await window.aistudio.hasSelectedApiKey();
-      setHasKey(selected);
-    } else {
-      // Caso fora do AI Studio, assumimos que process.env.API_KEY está lá
-      setHasKey(true);
-    }
-  };
-
-  const handleOpenKey = async () => {
-    if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      setHasKey(true); // Assume sucesso conforme instruções para evitar race condition
-    }
-  };
-
-  // Fix: Implemented handleFileChange to process user-uploaded reference images.
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -60,14 +45,6 @@ const App: React.FC = () => {
       reader.readAsDataURL(file);
     }
   };
-
-  const scrollToBottom = () => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   const downloadImage = () => {
     if (!logoUrl) return;
@@ -81,7 +58,7 @@ const App: React.FC = () => {
 
   const handleGenerate = async () => {
     if (!config.serverName) {
-      setError("Por favor, digite o nome do seu servidor.");
+      setError("⚔️ O nome do servidor é obrigatório para a invocação.");
       return;
     }
     setError(null);
@@ -92,16 +69,11 @@ const App: React.FC = () => {
       setLogoUrl(url);
       setMessages([{
         role: 'assistant',
-        text: `A forja materializou sua visão! Gostou do resultado? Se desejar, envie uma imagem de referência ou peça ajustes específicos na fonte e detalhes.`,
+        text: `O Mestre da Forja materializou sua visão! Se precisar de ajustes finos ou quiser que eu me inspire em uma imagem, basta enviar agora.`,
         timestamp: Date.now()
       }]);
     } catch (err: any) {
-      if (err.message === 'REKEY_REQUIRED') {
-        setError("Chave de API expirada ou inválida. Reconecte seu projeto.");
-        setHasKey(false);
-      } else {
-        setError(err.message || "Erro na Forja. Tente novamente.");
-      }
+      setError(err.message || "Erro místico na Forja. Verifique as configurações.");
     } finally {
       setLoading(false);
     }
@@ -121,7 +93,7 @@ const App: React.FC = () => {
 
     setMessages(prev => [...prev, { 
       role: 'user', 
-      text: messageText + (currentRefImage ? " [Referência Visual Anexada]" : ""), 
+      text: messageText + (currentRefImage ? " [Analisando Referência Visual...]" : ""), 
       timestamp: Date.now() 
     }]);
     setIsChatting(true);
@@ -135,9 +107,6 @@ const App: React.FC = () => {
         timestamp: Date.now() 
       }]);
     } catch (err: any) {
-      if (err.message === 'REKEY_REQUIRED') {
-        setHasKey(false);
-      }
       setMessages(prev => [...prev, { 
         role: 'assistant', 
         text: `⚠️ Alerta da Forja: ${err.message}`, 
@@ -148,163 +117,94 @@ const App: React.FC = () => {
     }
   };
 
-  // Tela de Boas-vindas / Conexão de API
-  if (hasKey === false) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-24 h-24 bg-amber-500 rounded-2xl flex items-center justify-center font-epic text-5xl font-bold text-slate-950 shadow-[0_0_50px_rgba(245,158,11,0.4)] mb-8">L2</div>
-        <h1 className="font-epic text-4xl text-white mb-4">LOGO <span className="text-amber-500">FORGE</span></h1>
-        <p className="text-slate-400 max-w-md mb-8 leading-relaxed">
-          Para acessar a Forja Premium e utilizar os modelos Gemini 3 Pro, você precisa conectar seu projeto do Google Cloud com faturamento ativado.
-        </p>
-        <button 
-          onClick={handleOpenKey}
-          className="bg-amber-500 text-slate-950 px-8 py-4 rounded-xl font-bold text-lg hover:bg-amber-400 transition-all shadow-2xl mb-6"
-        >
-          DESBLOQUEAR FORJA
-        </button>
-        <a 
-          href="https://ai.google.dev/gemini-api/docs/billing" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-amber-500/70 text-xs uppercase tracking-widest hover:text-amber-500 transition-colors border-b border-amber-500/20 pb-1"
-        >
-          Documentação de Faturamento e Chaves
-        </a>
-      </div>
-    );
-  }
-
-  if (hasKey === null) return null; // Aguardando check inicial
-
   const commonSuggestions = [
-    { label: 'Caligrafia Luxuosa', cmd: 'Redesenhe a tipografia com uma fonte cursiva extremamente luxuosa e conectada' },
-    { label: 'Gótica Agressiva', cmd: 'Mude a fonte para um estilo gótico medieval Blackletter agressivo' },
-    { label: 'Rúnico Ancestral', cmd: 'Transforme a tipografia em runas ancestrais esculpidas em pedra brilhante' },
-    { label: 'Efeito de Fogo Azul', cmd: 'Mude a energia elemental para fogo azul místico com partículas elétricas' },
+    { label: 'Caligrafia Luxuosa', cmd: 'Refine a tipografia para um estilo cursivo luxuoso e fluido com fios dourados' },
+    { label: 'Gótica Brutal', cmd: 'Altere a fonte para um estilo gótico brutalista, pesado e agressivo' },
+    { label: 'Rúnico Antigo', cmd: 'Transforme o texto em runas antigas esculpidas em pedra com brilho interno' },
+    { label: 'Efeito Elétrico', cmd: 'Adicione raios e faíscas elétricas azuis ao redor de todo o logo' },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-amber-500/30">
       {/* Header */}
       <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center font-epic text-2xl font-bold text-slate-950 shadow-[0_0_15px_rgba(245,158,11,0.5)]">
-              L2
-            </div>
-            <h1 className="font-epic text-2xl tracking-tight hidden sm:block">
-              LOGO <span className="text-amber-500">FORGE</span>
-            </h1>
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center font-epic text-3xl font-black text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.6)]">L2</div>
+            <h1 className="font-epic text-2xl tracking-tight uppercase">LOGO <span className="text-amber-500">FORGE</span></h1>
           </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="flex flex-col items-end">
-              <span className="text-xs text-slate-400 uppercase tracking-widest">SaaS Status</span>
-              <span className={`text-sm font-bold ${isPremium ? 'text-amber-400' : 'text-slate-300'}`}>
-                {isPremium ? '💎 Premium Active' : 'Basic Trial'}
-              </span>
+          <div className="flex items-center space-x-6">
+            <div className="hidden md:flex flex-col items-end">
+              <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Forge Status</span>
+              <span className="text-sm font-bold text-green-500 flex items-center"><span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span> Online</span>
             </div>
             <button 
               onClick={() => setIsPremium(!isPremium)}
-              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+              className={`px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${
                 isPremium 
-                ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' 
-                : 'bg-gradient-to-r from-amber-600 to-amber-400 text-slate-950 hover:shadow-[0_0_20px_rgba(245,158,11,0.4)]'
+                ? 'bg-slate-800 text-slate-400 border border-slate-700' 
+                : 'bg-gradient-to-r from-amber-600 to-amber-400 text-slate-950 hover:shadow-[0_0_25px_rgba(245,158,11,0.5)]'
               }`}
             >
-              {isPremium ? 'Downgrade' : 'Upgrade Premium - R$ 39,90'}
+              {isPremium ? 'SaaS Active' : 'Upgrade Premium'}
             </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 container mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Form Column */}
+      <main className="flex-1 container mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
+        {/* Left Side: Parameters */}
         <div className="lg:col-span-4 space-y-6">
-          <section className="bg-slate-900/50 border border-slate-800 p-6 rounded-2xl space-y-6 sticky top-28">
-            <h2 className="text-xl font-epic text-amber-500 mb-4 flex items-center">
-              <span className="mr-2">⚔️</span> Parâmetros Base
+          <div className="bg-slate-900/40 border border-slate-800 p-8 rounded-3xl space-y-8 sticky top-28 backdrop-blur-sm">
+            <h2 className="text-xl font-epic text-amber-500 flex items-center uppercase tracking-widest">
+              <span className="mr-3 text-2xl">⚡</span> Forja Principal
             </h2>
             
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 uppercase tracking-tighter">NOME DO SERVIDOR</label>
+            <div className="space-y-3">
+              <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Nome do Servidor</label>
               <input 
                 type="text"
-                placeholder="Ex: GLORY, AVIONER..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all font-epic text-xl uppercase placeholder:text-slate-700"
+                placeholder="Ex: ADEN, GLORY..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-6 py-4 focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all font-epic text-2xl uppercase placeholder:text-slate-800"
                 value={config.serverName}
                 onChange={(e) => setConfig({ ...config, serverName: e.target.value })}
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 uppercase tracking-tighter">Escolher ELEMENTO</label>
+            <div className="space-y-3">
+              <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Elemento Base</label>
               <div className="grid grid-cols-5 gap-2">
                 {ELEMENTS.map((el) => (
                   <button
                     key={el.id}
-                    title={el.label}
                     onClick={() => setConfig({ ...config, element: el.id })}
-                    className={`flex items-center justify-center p-2 rounded-lg border transition-all ${
+                    className={`aspect-square flex items-center justify-center text-2xl rounded-xl border transition-all ${
                       config.element === el.id 
-                      ? 'border-amber-500 bg-amber-500/20' 
-                      : 'border-slate-800 bg-slate-950/50'
+                      ? 'border-amber-500 bg-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]' 
+                      : 'border-slate-800 bg-slate-950/50 hover:border-slate-600'
                     }`}
                   >
-                    <span className="text-xl">{el.icon}</span>
+                    {el.icon}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 uppercase tracking-tighter">Escolher FONTE</label>
+            <div className="space-y-3">
+              <label className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">Anatomia da Fonte</label>
               <div className="grid grid-cols-3 gap-2">
                 {FONTS.map((font) => (
                   <button
                     key={font.id}
                     onClick={() => setConfig({ ...config, font: font.id })}
-                    className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${
+                    className={`py-3 rounded-xl border text-[9px] font-bold uppercase tracking-tighter transition-all ${
                       config.font === font.id 
                       ? 'border-amber-500 bg-amber-500/20 text-amber-400' 
-                      : 'border-slate-800 bg-slate-950/50 text-slate-500'
+                      : 'border-slate-800 bg-slate-950/50 text-slate-500 hover:border-slate-600'
                     }`}
                   >
-                    <span className="text-lg mb-1">{font.icon}</span>
-                    <span className="text-[9px] font-bold uppercase">{font.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 uppercase tracking-tighter">ESTILO VISUAL</label>
-              <select 
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all text-sm"
-                value={config.style}
-                onChange={(e) => setConfig({ ...config, style: e.target.value as LogoStyle })}
-              >
-                {STYLES.map(s => (
-                  <option key={s.id} value={s.id}>{s.label}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-300 uppercase tracking-tighter">DESTAQUE CENTRAL</label>
-              <div className="grid grid-cols-1 gap-2">
-                {DECORATIONS.map((dec) => (
-                  <button
-                    key={dec.id}
-                    onClick={() => setConfig({ ...config, decoration: dec.id })}
-                    className={`px-3 py-2 rounded-lg border text-[10px] font-bold uppercase transition-all text-left ${
-                      config.decoration === dec.id 
-                      ? 'border-amber-500 bg-amber-500/10 text-amber-400' 
-                      : 'border-slate-800 bg-slate-950/50 text-slate-400'
-                    }`}
-                  >
-                    {dec.label}
+                    {font.label}
                   </button>
                 ))}
               </div>
@@ -313,101 +213,103 @@ const App: React.FC = () => {
             <button 
               onClick={handleGenerate}
               disabled={loading}
-              className={`w-full py-4 rounded-xl font-epic text-lg tracking-widest transition-all ${
+              className={`w-full py-5 rounded-2xl font-epic text-xl tracking-[0.2em] transition-all shadow-2xl ${
                 loading 
-                ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                : 'bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-[0_4px_20px_rgba(245,158,11,0.3)]'
+                ? 'bg-slate-800 text-slate-600 cursor-wait' 
+                : 'bg-amber-500 text-slate-950 hover:bg-amber-400 active:scale-95 shadow-amber-500/20'
               }`}
             >
-              {loading ? 'INVOCANDO GEMINI 3 PRO...' : 'FORJAR LOGO'}
+              {loading ? 'FORJANDO...' : 'INICIAR FORJA'}
             </button>
 
-            {error && <p className="text-red-400 text-xs text-center font-semibold bg-red-400/10 p-2 rounded-lg border border-red-400/20">{error}</p>}
-          </section>
+            {error && (
+              <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <p className="text-red-400 text-[10px] font-bold uppercase tracking-widest text-center">{error}</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Preview & Chat Column */}
-        <div className="lg:col-span-8 space-y-8">
-          <div className="w-full aspect-video md:aspect-square lg:aspect-video relative bg-slate-900 rounded-3xl overflow-hidden border-2 border-slate-800 shadow-2xl flex items-center justify-center group">
+        {/* Right Side: Preview & Chat */}
+        <div className="lg:col-span-8 space-y-10">
+          <div className="w-full aspect-video relative bg-slate-900 rounded-[40px] overflow-hidden border-2 border-slate-800 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] flex items-center justify-center group">
             {logoUrl ? (
               <>
                 <img 
                   src={logoUrl} 
-                  alt="L2 Premium Logo Preview" 
-                  className={`w-full h-full object-contain transition-opacity duration-500 ${loading || isChatting ? 'opacity-30 blur-sm' : 'opacity-100'}`}
+                  alt="L2 Premium Logo" 
+                  className={`w-full h-full object-contain transition-all duration-700 ${loading || isChatting ? 'opacity-20 blur-xl scale-95' : 'opacity-100 scale-100'}`}
                 />
                 {!isPremium && <Watermark />}
                 
                 {(loading || isChatting) && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/60 backdrop-blur-md z-10">
-                    <div className="w-20 h-20 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-6"></div>
-                    <p className="font-epic text-2xl text-amber-400 animate-pulse uppercase tracking-widest text-center px-4 max-w-md">
-                      {loading ? 'Consultando Mestre Designer...' : 'Processando Referência 3D...'}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/40 backdrop-blur-sm z-10">
+                    <div className="w-24 h-24 border-b-4 border-amber-500 rounded-full animate-spin mb-8"></div>
+                    <p className="font-epic text-2xl text-amber-400 animate-pulse uppercase tracking-[0.3em]">
+                      {loading ? 'Invocando o Mestre...' : 'Refinando Anatomia...'}
                     </p>
                   </div>
                 )}
 
-                <div className="absolute top-6 right-6 flex space-x-2">
-                   <span className="bg-slate-950/80 backdrop-blur border border-slate-800 px-4 py-1.5 rounded-full text-[10px] font-bold text-amber-500 uppercase tracking-widest shadow-xl">
-                    {isPremium ? '💎 GEMINI 3 PRO HD' : 'PREVIEW QUALITY'}
-                  </span>
+                <div className="absolute top-8 right-8 flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <div className="bg-slate-950/90 backdrop-blur-md border border-slate-700 px-5 py-2 rounded-full text-[10px] font-black text-amber-500 uppercase tracking-widest shadow-2xl">
+                    High-End Render
+                  </div>
                 </div>
 
-                <div className="absolute bottom-6 left-6 right-6 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  {isPremium ? (
-                    <button 
-                      onClick={downloadImage}
-                      className="bg-amber-500 text-slate-950 px-8 py-3 rounded-xl font-bold text-sm hover:bg-amber-400 transition-all flex items-center shadow-[0_0_30px_rgba(245,158,11,0.4)]"
-                    >
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                      DOWNLOAD PREMIUM
-                    </button>
-                  ) : (
-                    <div className="bg-slate-950/90 backdrop-blur p-4 rounded-2xl border border-amber-500/40 shadow-2xl">
-                       <p className="text-xs text-amber-200 font-bold uppercase tracking-widest">⚠️ Upgrade to remove Watermark</p>
+                <div className="absolute bottom-8 left-8 right-8 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0">
+                  <button 
+                    onClick={downloadImage}
+                    className="bg-amber-500 text-slate-950 px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-amber-400 transition-all shadow-[0_15px_30px_rgba(245,158,11,0.4)]"
+                  >
+                    Baixar Arquivo Final
+                  </button>
+                  {!isPremium && (
+                    <div className="bg-slate-950/80 backdrop-blur-md px-6 py-3 rounded-2xl border border-amber-500/30">
+                       <p className="text-[10px] text-amber-200 font-bold uppercase tracking-widest">Remover Marca d'água 💎</p>
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              <div className="flex flex-col items-center text-slate-600 space-y-4">
-                <div className="w-24 h-24 rounded-full border-4 border-slate-800 flex items-center justify-center opacity-30 animate-pulse">
-                  <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              <div className="text-center space-y-6">
+                <div className="w-32 h-32 mx-auto rounded-full border-2 border-slate-800 flex items-center justify-center opacity-20">
+                  <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
                 </div>
-                <p className="font-epic text-xl uppercase tracking-widest text-slate-700 text-center">Aguardando Parâmetros da Forja</p>
+                <p className="font-epic text-2xl uppercase tracking-[0.4em] text-slate-800">Santuário da Forja</p>
               </div>
             )}
           </div>
 
-          {/* Chat Refinement Section */}
-          <div className={`bg-slate-900/80 border border-slate-800 rounded-3xl overflow-hidden flex flex-col transition-all duration-500 ${logoUrl ? 'h-[650px] opacity-100 shadow-2xl' : 'h-0 opacity-0 pointer-events-none'}`}>
-            <div className="p-5 border-b border-slate-800 bg-slate-950/70 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
-                <h3 className="font-epic text-sm text-amber-500 uppercase tracking-widest">AI Master Refiner</h3>
+          {/* AI Chat Section */}
+          <div className={`bg-slate-900/40 border border-slate-800 rounded-[40px] overflow-hidden flex flex-col transition-all duration-700 shadow-2xl ${logoUrl ? 'h-[700px] opacity-100' : 'h-0 opacity-0 pointer-events-none'}`}>
+            <div className="p-6 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.6)]"></div>
+                <h3 className="font-epic text-sm text-amber-500 uppercase tracking-widest">Designer AI (Cérebro da Forja)</h3>
               </div>
             </div>
 
-            <div className="px-4 py-4 bg-slate-950/40 border-b border-slate-800 flex items-center space-x-3 overflow-x-auto no-scrollbar">
+            <div className="px-6 py-4 bg-slate-950/20 border-b border-slate-800 flex items-center space-x-3 overflow-x-auto no-scrollbar">
                {commonSuggestions.map((sug, i) => (
                  <button 
                    key={i}
                    onClick={() => handleSendMessage(sug.cmd)}
                    disabled={isChatting}
-                   className="whitespace-nowrap bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-1.5 rounded-full text-[10px] text-slate-300 font-semibold transition-all disabled:opacity-50"
+                   className="whitespace-nowrap bg-slate-800/50 hover:bg-amber-500/10 border border-slate-700 px-5 py-2 rounded-full text-[10px] text-slate-400 font-bold uppercase transition-all disabled:opacity-50"
                  >
                    {sug.label}
                  </button>
                ))}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-8 space-y-8">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] px-5 py-3 rounded-2xl text-sm ${
+                  <div className={`max-w-[85%] px-6 py-4 rounded-3xl text-sm leading-relaxed shadow-xl ${
                     msg.role === 'user' 
-                    ? 'bg-amber-500 text-slate-950 font-semibold' 
-                    : 'bg-slate-800 text-slate-200 border border-slate-700'
+                    ? 'bg-amber-500 text-slate-950 font-black' 
+                    : 'bg-slate-800/80 text-slate-200 border border-slate-700'
                   }`}>
                     {msg.text}
                   </div>
@@ -415,7 +317,7 @@ const App: React.FC = () => {
               ))}
               {isChatting && (
                 <div className="flex justify-start">
-                  <div className="bg-slate-800/80 px-5 py-3 rounded-2xl border border-slate-700">
+                  <div className="bg-slate-800/80 px-6 py-4 rounded-3xl border border-slate-700">
                     <div className="flex space-x-2">
                       <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce"></div>
                       <div className="w-2 h-2 bg-amber-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
@@ -427,28 +329,40 @@ const App: React.FC = () => {
               <div ref={chatEndRef} />
             </div>
 
-            <form onSubmit={handleSendMessage} className="p-5 bg-slate-950/70 border-t border-slate-800 space-y-4">
+            <form onSubmit={handleSendMessage} className="p-8 bg-slate-950/60 border-t border-slate-800 space-y-6">
               {selectedFile && (
-                <div className="flex items-center space-x-4 bg-amber-500/10 p-3 rounded-2xl border border-amber-500/30">
-                  <img src={selectedFile} alt="Ref preview" className="w-16 h-16 object-cover rounded-xl border-2 border-amber-500/50" />
-                  <button type="button" onClick={() => setSelectedFile(null)} className="text-red-500 font-bold">REMOVER</button>
+                <div className="flex items-center space-x-5 bg-amber-500/10 p-4 rounded-3xl border border-amber-500/30">
+                  <div className="relative w-20 h-20">
+                    <img src={selectedFile} alt="Ref preview" className="w-full h-full object-cover rounded-2xl border-2 border-amber-500/50" />
+                    <button type="button" onClick={() => setSelectedFile(null)} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-xl"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                  </div>
+                  <div>
+                    <p className="text-xs text-amber-500 font-black uppercase tracking-widest">Referência Ativa</p>
+                    <p className="text-[10px] text-slate-500 mt-1 uppercase">O Mestre vai extrair o estilo desta imagem para o seu logo.</p>
+                  </div>
                 </div>
               )}
 
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-4">
                 <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-4 bg-slate-800 text-slate-400 rounded-2xl border border-slate-700"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg></button>
+                <button 
+                  type="button" 
+                  onClick={() => fileInputRef.current?.click()} 
+                  className="p-5 bg-slate-800 text-slate-400 rounded-3xl border border-slate-700 hover:text-amber-500 hover:border-amber-500/50 transition-all shadow-xl"
+                >
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                </button>
 
                 <div className="relative flex-1">
                   <input 
                     type="text"
-                    placeholder="Refinar usando Gemini 3 Pro..."
-                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-6 py-4 pr-16 text-sm"
+                    placeholder="Refinar usando Inteligência MMORPG..."
+                    className="w-full bg-slate-900/80 border border-slate-700 rounded-3xl px-8 py-5 pr-20 text-sm focus:ring-2 focus:ring-amber-500/20 transition-all shadow-inner"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     disabled={isChatting}
                   />
-                  <button type="submit" disabled={isChatting} className="absolute right-2.5 top-2.5 bottom-2.5 px-5 bg-amber-500 text-slate-950 rounded-xl font-bold">FORJAR</button>
+                  <button type="submit" disabled={isChatting} className="absolute right-3 top-3 bottom-3 px-6 bg-amber-500 text-slate-950 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-amber-400 disabled:opacity-50 shadow-xl">Refinar</button>
                 </div>
               </div>
             </form>
@@ -456,11 +370,10 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <footer className="border-t border-slate-900 py-12 bg-slate-950 mt-12">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-slate-600 text-[10px] uppercase tracking-[0.5em] font-black">
-            ⚔️ L2 LOGO FORGE PREMIUN SAAS ⚔️
-          </p>
+      <footer className="border-t border-slate-900 py-16 bg-slate-950 mt-20">
+        <div className="container mx-auto px-4 text-center space-y-4">
+          <p className="text-slate-700 text-[10px] uppercase tracking-[0.8em] font-black">L2 LOGO FORGE PREMIUN SAAS</p>
+          <p className="text-slate-800 text-[9px] uppercase font-bold tracking-widest">Powered by Gemini 2.5 Flash for private server owners</p>
         </div>
       </footer>
     </div>
